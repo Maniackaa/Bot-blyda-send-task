@@ -1,0 +1,12 @@
+[Unit]
+Description=Bot-blyda-send-task
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/bot/Bot-blyda-send-task
+ExecStart=/root/bot/Bot-blyda-send-task/venv/bin/python3 /root/bot/Bot-blyda-send-task/main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
