@@ -2,6 +2,7 @@ import datetime
 import uuid
 
 from time import time
+from typing import Sequence, List
 
 from sqlalchemy import create_engine, ForeignKey, Date, String, DateTime, \
     Float, UniqueConstraint, Integer, MetaData, BigInteger, ARRAY, Table, Column, select, JSON
@@ -41,7 +42,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(200), nullable=True)
     register_date: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     referral: Mapped[str] = mapped_column(String(20), nullable=True)
-    anket_data = mapped_column(JSON, nullable=True)
+    reports: Mapped[List['Report']] = relationship(back_populates='user', lazy='selectin')
 
     def __repr__(self):
         return f'{self.id}. {self.tg_id} {self.username or "-"}'
@@ -67,6 +68,7 @@ class Task(Base):
     title: Mapped[str] = mapped_column(String(100), nullable=True)
     text: Mapped[str] = mapped_column(String(4000), default='-')
     image: Mapped[str] = mapped_column(String(100))
+    type: Mapped[str] = mapped_column(String(20), default='photo')
 
     def __repr__(self):
         return f'{self.id}: {self.text[:20]}'
@@ -102,5 +104,19 @@ class Task(Base):
             if item.title:
                 menus.append([item.title, item.id])
         return menus
+
+
+class Report(Base):
+    __tablename__ = 'reports'
+    id: Mapped[int] = mapped_column(primary_key=True,
+                                    autoincrement=True,
+                                    comment='Первичный ключ')
+    user_id = mapped_column(ForeignKey('users.id'))
+    user: Mapped[User] = relationship(back_populates="reports", lazy='selectin')
+    date: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    task_type:  Mapped[str] = mapped_column(String(20), default='утро')
+
+    def __repr__(self):
+        return f'Report {self.id}. {self.user} {self.date}'
 
 Base.metadata.create_all(engine)

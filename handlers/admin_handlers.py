@@ -1,3 +1,5 @@
+import json
+
 from aiogram import Router, Bot, F
 from aiogram.enums import ContentType
 from aiogram.filters import Command, BaseFilter
@@ -15,6 +17,7 @@ from keyboards.keyboards import yes_no_kb, start_kb, custom_kb, start_bn, nav_kb
 from lexicon.lexicon import LEXICON_RU
 
 from services.db_func import get_or_create_user, task_db_save, task_db_delete
+from services.func import write_send_list_ids, read_send_list_ids
 
 logger, err_log = get_my_loggers()
 
@@ -68,7 +71,7 @@ async def process_start_command(message: Message, state: FSMContext, bot: Bot):
 @router.callback_query(F.data == 'add_task')
 async def echo(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.message.delete()
-    await callback.message.answer('Пришлите изображение')
+    await callback.message.answer('Пришлите изображение или видео')
     await state.set_state(FSMTask.send_photo)
 
 
@@ -78,9 +81,12 @@ async def send_photo(message: Message, state: FSMContext, bot: Bot):
 
     if message.content_type == ContentType.PHOTO:
         file_id = message.photo[-1].file_id
-        await state.update_data(image=file_id)
+        await state.update_data(file_id=file_id, content_type='image')
+    elif message.content_type == ContentType.VIDEO:
+        file_id = message.video.file_id
+        await state.update_data(file_id=file_id, content_type='video')
     else:
-        await message.answer('Необходимо приложить изображение c сжатием')
+        await message.answer('Необходимо приложить изображение c сжатием или видео')
         return
 
     await message.answer('Введите текст')
@@ -102,9 +108,13 @@ async def save_title(message: Message, state: FSMContext, bot: Bot):
     title = message.text
     await state.update_data(title=title)
     data = await state.get_data()
-    image = data.get('image')
+    file_id = data.get('file_id')
     text = data.get('text')
-    await message.answer_photo(photo=image, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
+    content_type = data.get('content_type')
+    if content_type == 'photo':
+        await message.answer_photo(photo=file_id, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
+    elif content_type == 'video':
+        await message.answer_video(video=file_id, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
     await state.set_state(FSMTask.save_confirm)
 
 
@@ -115,9 +125,10 @@ async def save_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot):
         print(data)
         text = data.get('text')
         title = data.get('title')
-        image = data.get('image')
+        file_id = data.get('file_id')
+        content_type = data.get('content_type')
         await callback.message.edit_reply_markup(reply_markup=None)
-        task_id = task_db_save(title, text, image)
+        task_id = task_db_save(title, text, file_id, content_type)
         await callback.message.answer(f'Сохранено #{task_id}', reply_markup=start_kb)
         await state.clear()
 
@@ -181,9 +192,16 @@ async def task_delete_confirm(callback: CallbackQuery,  state: FSMContext, bot: 
 @router.callback_query(F.data.startswith('send_list_edit'))
 async def send_list_edit(callback: CallbackQuery,  state: FSMContext, bot: Bot):
     await callback.message.delete()
-    with open(BASE_DIR / 'send_list.txt') as file:
-        send_list = file.read().strip()
-    msg = await callback.message.answer(f'Текущий список:\n{send_list}\n\nВведите новый список через запятую', reply_markup=custom_kb(1, {'Отменить редактирование': 'cancel'}))
+    send_list = read_send_list_ids()
+    send_list_str = '\n'.join([f'{k} {v}' for k, v in send_list.items()])
+    text = (f'Текущий список:\n{send_list_str}\n\n'
+            f'Введите новый список.\n'
+            f'Одна строка "id телеграмм" "Название" через пробел\n\n'
+            f'Например:\n'
+            f'6983441538 Сколково\n'
+            f'6909172046 Павелецкая'
+            )
+    msg = await callback.message.answer(text, reply_markup=custom_kb(1, {'Отменить редактирование': 'cancel'}))
     await state.set_state(FSMSendList.list_edit)
     await state.update_data(msg=msg)
 
@@ -191,12 +209,15 @@ async def send_list_edit(callback: CallbackQuery,  state: FSMContext, bot: Bot):
 @router.message(FSMSendList.list_edit)
 async def list_edit(message: Message, state: FSMContext, bot: Bot):
     try:
-        new_send_list = message.text.strip()
-        send_list_ids = [str(int(target_id.strip())) for target_id in new_send_list.split(',')]
-        print(send_list_ids)
-        with open(BASE_DIR / 'send_list.txt', 'w') as file:
-            file.write(', '.join(send_list_ids))
-        await message.answer(f'Новый список: {new_send_list}')
+        new_send_dict = {}
+        rows = message.text.strip().split('\n')
+        print(rows)
+        for row in rows:
+            tg_id, name = row.split()
+            new_send_dict[tg_id.strip()] = name.strip()
+        print(new_send_dict)
+        write_send_list_ids(new_send_dict)
+        await message.answer(f'Новый список: {new_send_dict}')
         data = await state.get_data()
         msg = data.get('msg')
         await bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)

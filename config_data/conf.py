@@ -1,9 +1,14 @@
+import logging
 from dataclasses import dataclass
 from typing import List
 
 import pytz
+import structlog
 from environs import Env
 from pathlib import Path
+
+from structlog.typing import WrappedLogger, EventDict
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 LOGGING_CONFIG = {
@@ -126,6 +131,47 @@ tz = conf.tg_bot.TIMEZONE
 
 
 def get_my_loggers():
-    import logging.config
-    logging.config.dictConfig(LOGGING_CONFIG)
-    return logging.getLogger('bot_logger'), logging.getLogger('errors_logger')
+    class LogJump:
+        def __init__(
+            self,
+            full_path: bool = False,
+        ) -> None:
+            self.full_path = full_path
+
+        def __call__(
+            self, logger: WrappedLogger, name: str, event_dict: EventDict
+        ) -> EventDict:
+            if self.full_path:
+                file_part = "\n" + event_dict.pop("pathname")
+            else:
+                file_part = event_dict.pop("filename")
+            event_dict["location"] = f'"{file_part}:{event_dict.pop("lineno")}"'
+
+            return event_dict
+
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.StackInfoRenderer(),
+            structlog.dev.set_exc_info,
+            structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+            structlog.processors.CallsiteParameterAdder(
+                [
+                    # add either pathname or filename and then set full_path to True or False in LogJump below
+                    # structlog.processors.CallsiteParameter.PATHNAME,
+                    structlog.processors.CallsiteParameter.FILENAME,
+                    structlog.processors.CallsiteParameter.LINENO,
+                ],
+            ),
+            LogJump(full_path=False),
+            structlog.dev.ConsoleRenderer(),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.NOTSET),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+        # logger_factory=structlog.WriteLoggerFactory(file=Path("logs/bot").with_suffix(".log").open("wt")),
+        cache_logger_on_first_use=False,
+    )
+    logger = structlog.stdlib.get_logger()
+    return logger, logger
