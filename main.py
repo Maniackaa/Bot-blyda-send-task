@@ -62,6 +62,7 @@ async def expired_cafe(bot: Bot):
         if text:
             try:
                 await bot.send_message(chat_id=conf.tg_bot.admin_ids[0], text=text)
+                await bot.send_message(chat_id=conf.tg_bot.admin_ids[1], text=text)
                 await asyncio.sleep(0.1)
             except TelegramForbiddenError as err:
                 logger.warning(f'Ошибка отправки сообщения отчета по просрочки: {err}')
@@ -109,8 +110,10 @@ async def expired_evening_task(bot: Bot):
                     text += f'Точка @{name} нарушила сроки\n'
             else:
                 text += f'Точки @{name} нет в базе\n'
-
+        logger.debug(f'Отчет:\n{text}')
         await bot.send_message(chat_id=conf.tg_bot.admin_ids[0], text=text)
+        await bot.send_message(chat_id=conf.tg_bot.admin_ids[1], text=text)
+        logger.info(f'Отчет отправлен')
         await asyncio.sleep(0.1)
 
     except Exception as err:

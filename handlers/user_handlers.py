@@ -47,7 +47,6 @@ async def media_receiver(message: Message, state: FSMContext, bot: Bot):
     """Прием отправленных медиа для задания"""
     try:
         data = await state.get_data()
-        logger.debug(message.content_type)
         media_group: MediaGroupBuilder = data.get('media_group')
         if message.photo:
             media_group.add_photo(media=message.photo[-1].file_id)
@@ -92,7 +91,7 @@ async def echo(callback: CallbackQuery, state: FSMContext, bot: Bot):
         media = media_group.build()
         tg_id = str(callback.from_user.id)
         name = read_send_list_ids()[tg_id]
-        media[0].caption = f'Отчет от {callback.from_user.id} (@{name})\n' + msg.text
+        media[0].caption = f'Отчет от @{callback.from_user.username} ({name})\n' + msg.text
         await bot.send_media_group(chat_id=conf.tg_bot.admin_ids[0], media=media)
         await state.clear()
         user = get_or_create_user(callback.from_user)

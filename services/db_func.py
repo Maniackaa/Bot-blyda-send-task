@@ -94,17 +94,23 @@ def save_evening_report(user, task_type=1):
 def get_expired_cafe() -> dict:
     """Возвращает словарь из send_list которые сегодня не прислали отчет"""
     session = Session(expire_on_commit=False)
-    with session:
-        q = select(Report)
-        reports = session.execute(q).scalars().all()
-        all_cafe = read_send_list_ids()
-        logger.debug(f'Вcе кафе: {all_cafe}')
-        for report in reports:
-            print(report.date)
-            if report.date.date() == datetime.datetime.now(tz=tz).date():
-                all_cafe.pop(report.user.tg_id)
-        logger.debug(f'Просроченные кафе: {all_cafe}')
-        return all_cafe
+    try:
+        with session:
+            q = select(Report)
+            reports = session.execute(q).scalars().all()
+            all_cafe = read_send_list_ids()
+            logger.debug(f'Вcе кафе: {all_cafe}')
+            for report in reports:
+                if report.date.date() == datetime.datetime.now(tz=tz).date():
+                    try:
+                        all_cafe.pop(report.user.tg_id)
+                    except Exception:
+                        pass
+            logger.debug(f'Просроченные кафе: {all_cafe}')
+            return all_cafe
+    except Exception as err:
+        logger.error(err)
+        raise err
 
 
 def get_report(today=datetime.datetime.now(tz=tz).date()) -> str:
@@ -175,44 +181,46 @@ def evening_report_is_ok(user: User):
         print(res)
     return res
 
+
 if __name__ == '__main__':
+    get_expired_cafe()
     # num = 500134
     # digits_count = 5
     # result = f'{num:0{f"{digits_count}"}}'
     # print(result)
     # print(asyncio.run(get_tasks_to_send()))
     # get_expired_cafe()
-    user_id = 2
-    with Session() as session:
-        q = delete(Report)
-        session.execute(q)
-        session.commit()
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 9, 9, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 8, 11, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 7, 9, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 5, 9, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 4, 9, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 3, 9, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 2, 9, 5))
-        session.add(report)
-        report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 1, 9, 5))
-        session.add(report)
-        session.commit()
-        for x in range(1, 10):
-            report = Report(user_id=user_id, date=datetime.datetime(2024, 4, x, 22, 5), task_type='вечер')
-            session.add(report)
-        session.commit()
-
-    # get_week_expire_report()
-    get_report()
-    # get_evening_report(ch)
-    user = check_user('6247356284')
-    print(user)
-    is_ok = evening_report_is_ok(user)
-    print(is_ok)
+    # user_id = 2
+    # with Session() as session:
+    #     q = delete(Report)
+    #     session.execute(q)
+    #     session.commit()
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 9, 9, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 8, 11, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 7, 9, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 5, 9, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 4, 9, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 3, 9, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 2, 9, 5))
+    #     session.add(report)
+    #     report = Report(user_id=user_id, date=datetime.datetime(2024, 4, 1, 9, 5))
+    #     session.add(report)
+    #     session.commit()
+    #     for x in range(1, 10):
+    #         report = Report(user_id=user_id, date=datetime.datetime(2024, 4, x, 22, 5), task_type='вечер')
+    #         session.add(report)
+    #     session.commit()
+    #
+    # # get_week_expire_report()
+    # get_report()
+    # # get_evening_report(ch)
+    # user = check_user('6247356284')
+    # print(user)
+    # is_ok = evening_report_is_ok(user)
+    # print(is_ok)

@@ -105,17 +105,21 @@ async def answer_photo(message: Message, state: FSMContext, bot: Bot):
 @router.message(FSMTask.save_title)
 async def save_title(message: Message, state: FSMContext, bot: Bot):
     # Прием названия
-    title = message.text
-    await state.update_data(title=title)
-    data = await state.get_data()
-    file_id = data.get('file_id')
-    text = data.get('text')
-    content_type = data.get('content_type')
-    if content_type == 'photo':
-        await message.answer_photo(photo=file_id, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
-    elif content_type == 'video':
-        await message.answer_video(video=file_id, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
-    await state.set_state(FSMTask.save_confirm)
+    try:
+        title = message.text
+        await state.update_data(title=title)
+        data = await state.get_data()
+        file_id = data.get('file_id')
+        text = data.get('text')
+        content_type = data.get('content_type')
+        logger.debug('content_type')
+        if content_type == 'image':
+            await message.answer_photo(photo=file_id, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
+        elif content_type == 'video':
+            await message.answer_video(video=file_id, caption=f'<b>{title}</b>\n{text}', reply_markup=confirm_kb)
+        await state.set_state(FSMTask.save_confirm)
+    except Exception as err:
+        logger.error(err)
 
 
 @router.callback_query(FSMTask.save_confirm, F.data.in_(['confirm']))
@@ -141,7 +145,7 @@ def format_task_list() -> str:
     text = 'Список:\n'
     for task in tasks:
         text += f'<b>{task.id}. {task.title}</b>\n\n'
-    return text
+    return text[:3999]
 
 
 @router.callback_query(F.data == 'task_list')
@@ -165,12 +169,16 @@ async def task_delete(message: Message, state: FSMContext, bot: Bot):
     try:
         task_id = int(message.text.strip())
         await state.update_data(task_id=task_id)
-        task = Task().get_item(task_id)
+        task: Task = Task().get_item(task_id)
         if not task:
             await message.answer('Такого номера нет. Введите номер для удаления')
         else:
-            await message.answer_photo(photo=task.image, caption=f'<b>{task.title}</b>\n{task.text}',
-                                       reply_markup=custom_kb(2, {'Отмена': 'cancel', 'Удалить': f'delete_task_{task_id}'}))
+            if task.type == 'photo' or task.type == 'image':
+                await message.answer_photo(photo=task.image, caption=f'<b>{task.title}</b>\n{task.text}',
+                                           reply_markup=custom_kb(2, {'Отмена': 'cancel', 'Удалить': f'delete_task_{task_id}'}))
+            elif task.type == 'video':
+                await message.answer_video(video=task.image, caption=f'<b>{task.title}</b>\n{task.text}',
+                                           reply_markup=custom_kb(2, {'Отмена': 'cancel', 'Удалить': f'delete_task_{task_id}'}))
             await state.set_state(FSMTask.task_delete)
     except ValueError:
         await message.answer('Введите корректный номер для удаления')
