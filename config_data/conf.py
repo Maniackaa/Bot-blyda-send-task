@@ -148,7 +148,7 @@ def get_my_loggers():
             event_dict["location"] = f'"{file_part}:{event_dict.pop("lineno")}"'
 
             return event_dict
-
+    path = BASE_DIR / 'logs' / 'bot.log'
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -167,10 +167,10 @@ def get_my_loggers():
             LogJump(full_path=False),
             structlog.dev.ConsoleRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.NOTSET),
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
-        # logger_factory=structlog.WriteLoggerFactory(file=Path("logs/bot").with_suffix(".log").open("wt")),
+        # logger_factory=structlog.WriteLoggerFactory(file=path.open("wt", encoding='utf-8')),
         cache_logger_on_first_use=False,
     )
     logger = structlog.stdlib.get_logger()

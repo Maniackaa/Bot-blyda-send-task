@@ -1,3 +1,4 @@
+import datetime
 import json
 
 from aiogram import Router, Bot, F
@@ -16,7 +17,7 @@ from database.db import Task
 from keyboards.keyboards import yes_no_kb, start_kb, custom_kb, start_bn, nav_kb, confirm_kb
 from lexicon.lexicon import LEXICON_RU
 
-from services.db_func import get_or_create_user, task_db_save, task_db_delete
+from services.db_func import get_or_create_user, task_db_save, task_db_delete, get_last_days_report, check_user
 from services.func import write_send_list_ids, read_send_list_ids
 
 logger, err_log = get_my_loggers()
@@ -233,5 +234,23 @@ async def list_edit(message: Message, state: FSMContext, bot: Bot):
         await message.answer(f'Ошибка: {err}', reply_markup=start_kb)
         await state.clear()
 
+
+def format_report_text(report_data: dict):
+    text = f''
+    for tg_id, day_false in report_data.items():
+        user = check_user(tg_id)
+        if user:
+            text += f'{user.first_name} ({user.tg_id}): <b>{day_false}</b>\n'
+    return text
+
+@router.callback_query(F.data.startswith('send_report_'))
+async def send_list_edit(callback: CallbackQuery,  state: FSMContext, bot: Bot):
+    # await callback.message.delete()
+    days = int(callback.data.split('send_report_')[1])
+    report_data = get_last_days_report(report_type='утро', days_ago=days)
+    today = (datetime.datetime.today() - datetime.timedelta(days=1)).date()
+    text = f'<b>Отчет за период {(today - datetime.timedelta(days=days - 1))} - {today}</b>\n'
+    text = text + format_report_text(report_data)
+    await callback.message.answer(text)
 
 
