@@ -84,9 +84,11 @@ def save_report(user):
         session.commit()
 
 
-def save_evening_report(user, task_type=1):
+def save_evening_report(user, task_type='вечер'):
+    logger.debug(f'save_evening_report {task_type}')
     with Session() as session:
-        report = Report(user_id=user.id, date=datetime.datetime.now(tz=tz), task_type='вечер')
+        report = Report(user_id=user.id, date=datetime.datetime.now(tz=tz), task_type=task_type)
+        logger.debug(report)
         session.add(report)
         session.commit()
 
@@ -182,11 +184,28 @@ def evening_report_is_ok(user: User):
     return res
 
 
+def evening_report_bar_is_ok(user: User):
+    """Если есть вечерний отчет до 23 то возвращает его"""
+    today = datetime.datetime.now(tz=tz).date()
+    session = Session(expire_on_commit=False)
+    with session:
+        q = select(Report).where(
+            Report.user_id == user.id,
+            Report.task_type == 'бар',
+            func.DATE(Report.date) == today,
+            func.extract('hour', Report.date) < 23
+        )
+        res = session.execute(q).scalars().all()
+        print(res)
+    return res
+
+
 def get_day_report(report_date, user: User, report_type: str):
     session = Session(expire_on_commit=False)
     correct_times = {
         'утро': (8, 11),
-        'вечер': (20, 23)
+        'вечер': (20, 23),
+        'бар': (20, 23),
     }
     logger.debug(f'Ищем отчет за {report_date} {user} {report_type}')
     with session:

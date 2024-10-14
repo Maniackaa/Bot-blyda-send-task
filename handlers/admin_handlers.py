@@ -243,14 +243,17 @@ def format_report_text(report_data: dict):
             text += f'{user.first_name} ({user.tg_id}): <b>{day_false}</b>\n'
     return text
 
+
 @router.callback_query(F.data.startswith('send_report_'))
 async def send_list_edit(callback: CallbackQuery,  state: FSMContext, bot: Bot):
     # await callback.message.delete()
     days = int(callback.data.split('send_report_')[1])
-    report_data = get_last_days_report(report_type='утро', days_ago=days)
     today = (datetime.datetime.today() - datetime.timedelta(days=1)).date()
-    text = f'<b>Отчет за период {(today - datetime.timedelta(days=days - 1))} - {today}</b>\n'
-    text = text + format_report_text(report_data)
-    await callback.message.answer(text)
+
+    for report_type in ['утро', 'вечер', 'бар']:
+        report_data = get_last_days_report(report_type=report_type, days_ago=days)
+        text = f'<b>Отчет "{report_type}" за период {(today - datetime.timedelta(days=days - 1))} - {today}</b>\n'
+        text = text + format_report_text(report_data)
+        await callback.message.answer(text)
 
 

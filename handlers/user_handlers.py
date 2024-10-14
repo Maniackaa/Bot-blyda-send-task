@@ -79,8 +79,10 @@ async def report_reset(callback: CallbackQuery, state: FSMContext, bot: Bot):
 @router.callback_query(F.data == 'report_confirm')
 async def echo(callback: CallbackQuery, state: FSMContext, bot: Bot):
     """Отправка отчета"""
+    logger.debug('report_confirm')
     try:
         data = await state.get_data()
+        logger.debug(data)
         media_group = data.get('media_group')
         if not media_group or not media_group.build():
             await callback.message.answer('Нет медиа для отправки')
@@ -93,13 +95,22 @@ async def echo(callback: CallbackQuery, state: FSMContext, bot: Bot):
         name = read_send_list_ids()[tg_id]
         media[0].caption = f'Отчет от @{callback.from_user.username} ({name})\n' + msg.text
         await bot.send_media_group(chat_id=conf.tg_bot.admin_ids[0], media=media)
+        await bot.send_media_group(chat_id=conf.tg_bot.admin_ids[1], media=media)
         await state.clear()
         user = get_or_create_user(callback.from_user)
-        if 'олодильник' in msg.text:
+
+        if 'БАР' in msg.text:
+            logger.debug('Сораняем БАР')
+            save_evening_report(user, 'бар')
+        elif 'олодильни' in msg.text:
+            logger.debug('Сораняем Холодильник')
             save_evening_report(user)
         else:
+            logger.debug('Сораняем Отчет')
             save_report(user)
+        await callback.message.answer('✅отчет отправлен✅')
     except Exception as err:
+        await callback.message.answer('❌отчет не отправлен❌')
         logger.error(err)
 
 

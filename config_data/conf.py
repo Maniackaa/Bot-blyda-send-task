@@ -167,7 +167,7 @@ def get_my_loggers():
             LogJump(full_path=False),
             structlog.dev.ConsoleRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         # logger_factory=structlog.WriteLoggerFactory(file=path.open("wt", encoding='utf-8')),

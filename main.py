@@ -11,7 +11,8 @@ from handlers import user_handlers, admin_handlers
 from keyboards.keyboards import report_kb
 import aioschedule
 
-from services.db_func import get_tasks_to_send, get_expired_cafe, check_user, evening_report_is_ok
+from services.db_func import get_tasks_to_send, get_expired_cafe, check_user, evening_report_is_ok, \
+    evening_report_bar_is_ok
 from services.func import read_send_list_ids
 
 logger, err_log = get_my_loggers()
@@ -58,6 +59,10 @@ async def expired_cafe(bot: Bot):
         expired_cafe_dict: dict = get_expired_cafe()
         text = ''
         for tg_id, name in expired_cafe_dict.items():
+            try:
+                await bot.send_message(chat_id=tg_id, text='❌отчет не отправлен❌')
+            except Exception as err:
+                logger.warning(err)
             text += f'Точка {name} нарушила сроки\n'
         if text:
             try:
@@ -95,6 +100,25 @@ async def end_day_task(bot: Bot):
         logger.error(err)
 
 
+async def end_day_task_bar(bot: Bot):
+    """Задача по уборке бара"""
+    text = """БАР - сфотографируй рабочие поверхности, холодильники и кофемашину."""
+    try:
+        logger.info('Начинаем вечернюю рассылку задачи БАР')
+        send_list_ids = read_send_list_ids()
+        for send_id, name in send_list_ids.items():
+            try:
+                await asyncio.sleep(0.1)
+                await bot.send_message(chat_id=send_id, text=text, reply_markup=report_kb)
+            except TelegramForbiddenError as err:
+                logger.warning(f'Ошибка отправки сообщения по уборке для {send_id}: {err}')
+            except Exception as err:
+                logger.error(f'ошибка отправки сообщения по уборке пользователю {send_id}: {err}', exc_info=False)
+                err_log.error(f'ошибка отправки сообщения по уборке пользователю {send_id}: {err}', exc_info=False)
+    except Exception as err:
+        logger.error(err)
+
+
 async def expired_evening_task(bot: Bot):
     """Ищем вечерние просрочки после 23.00 и шлём отчет"""
     try:
@@ -102,11 +126,46 @@ async def expired_evening_task(bot: Bot):
         povar_dict = read_send_list_ids()
         text = 'Вечерний отчет\n'
         for tg_id, name in povar_dict.items():
+            await asyncio.sleep(0.1)
             user = check_user(tg_id)
             logger.debug(user)
             if user:
                 is_ok = evening_report_is_ok(user)
                 if not is_ok:
+                    try:
+                        await bot.send_message(chat_id=tg_id, text='❌отчет не отправлен❌')
+                    except Exception as err:
+                        logger.warning(err)
+                    text += f'Точка @{name} нарушила сроки\n'
+            else:
+                text += f'Точки @{name} нет в базе\n'
+        logger.debug(f'Отчет:\n{text}')
+        await bot.send_message(chat_id=conf.tg_bot.admin_ids[0], text=text)
+        await bot.send_message(chat_id=conf.tg_bot.admin_ids[1], text=text)
+        logger.info(f'Отчет отправлен')
+        await asyncio.sleep(0.1)
+
+    except Exception as err:
+        logger.error(f'Ошибка проверки рассылки: {err}')
+
+
+async def expired_evening_task_bar(bot: Bot):
+    """Ищем вечерние просрочки после 23.00 и шлём отчет"""
+    try:
+        logger.info(f'Ищем вечерние просрочки бара')
+        povar_dict = read_send_list_ids()
+        text = 'Вечерний отчет БАР\n'
+        for tg_id, name in povar_dict.items():
+            await asyncio.sleep(0.1)
+            user = check_user(tg_id)
+            logger.debug(user)
+            if user:
+                is_ok = evening_report_bar_is_ok(user)
+                if not is_ok:
+                    try:
+                        await bot.send_message(chat_id=tg_id, text='❌отчет не отправлен❌')
+                    except Exception as err:
+                        logger.warning(err)
                     text += f'Точка @{name} нарушила сроки\n'
             else:
                 text += f'Точки @{name} нет в базе\n'
@@ -130,6 +189,8 @@ async def shedulers(bot):
     aioschedule.every().day.at('20:00').do(end_day_task, bot)
     end_day_task_time = '23:59'
     aioschedule.every().day.at(end_day_task_time).do(expired_evening_task, bot)
+    aioschedule.every().day.at('20:01').do(end_day_task_bar, bot)
+    aioschedule.every().day.at('23:59').do(expired_evening_task_bar, bot)
 
     while True:
         await aioschedule.run_pending()
@@ -158,6 +219,8 @@ async def main():
     # await send_task(bot)
     # await end_day_task(bot)
     # await expired_evening_task(bot)
+    # await end_day_task_bar(bot)
+    # await expired_evening_task_bar(bot)
     asyncio.create_task(shedulers(bot))
     await dp.start_polling(bot, allowed_updates=["message", "my_chat_member", "chat_member", "callback_query"])
 
