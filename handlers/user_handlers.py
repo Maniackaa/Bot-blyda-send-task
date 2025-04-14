@@ -94,8 +94,12 @@ async def echo(callback: CallbackQuery, state: FSMContext, bot: Bot):
         tg_id = str(callback.from_user.id)
         name = read_send_list_ids()[tg_id]
         media[0].caption = f'Отчет от @{callback.from_user.username} ({name})\n' + msg.text
-        await bot.send_media_group(chat_id=conf.tg_bot.admin_ids[0], media=media)
-        await bot.send_media_group(chat_id=conf.tg_bot.admin_ids[1], media=media)
+        for admin_tg in conf.tg_bot.admin_ids:
+            try:
+                await bot.send_media_group(chat_id=admin_tg, media=media)
+                await asyncio.sleep(0.1)
+            except Exception as err:
+                pass
         await state.clear()
         user = get_or_create_user(callback.from_user)
 

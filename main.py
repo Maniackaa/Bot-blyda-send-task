@@ -65,14 +65,15 @@ async def expired_cafe(bot: Bot):
                 logger.warning(err)
             text += f'Точка {name} нарушила сроки\n'
         if text:
-            try:
-                await bot.send_message(chat_id=conf.tg_bot.admin_ids[0], text=text)
-                await bot.send_message(chat_id=conf.tg_bot.admin_ids[1], text=text)
-                await asyncio.sleep(0.1)
-            except TelegramForbiddenError as err:
-                logger.warning(f'Ошибка отправки сообщения отчета по просрочки: {err}')
-            except Exception as err:
-                logger.error(f'Ошибка отправки сообщения отчета по просрочки: {err}', exc_info=False)
+            for admin_tg in conf.tg_bot.admin_ids:
+                try:
+                    await bot.send_message(chat_id=admin_tg, text=text)
+                    logger.info(f'Отчет {admin_tg} отправлен')
+                    await asyncio.sleep(0.1)
+                except TelegramForbiddenError as err:
+                    logger.warning(f'Ошибка отправки сообщения отчета по просрочки: {err}')
+                except Exception as err:
+                    logger.error(f'Ошибка отправки сообщения отчета по просрочки: {err}', exc_info=False)
 
         else:
             logger.info('Просрочек нет')
@@ -140,10 +141,16 @@ async def expired_evening_task(bot: Bot):
             else:
                 text += f'Точки @{name} нет в базе\n'
         logger.debug(f'Отчет:\n{text}')
-        await bot.send_message(chat_id=conf.tg_bot.admin_ids[0], text=text)
-        await bot.send_message(chat_id=conf.tg_bot.admin_ids[1], text=text)
-        logger.info(f'Отчет отправлен')
-        await asyncio.sleep(0.1)
+        for admin_tg in conf.tg_bot.admin_ids:
+            try:
+                await bot.send_message(chat_id=admin_tg, text=text)
+
+                logger.info(f'Отчет {admin_tg} отправлен')
+                await asyncio.sleep(0.1)
+            except TelegramForbiddenError as err:
+                logger.warning(f'Ошибка отправки сообщения отчета по просрочки: {err}')
+            except Exception as err:
+                logger.error(f'Ошибка отправки сообщения отчета по просрочки: {err}', exc_info=False)
 
     except Exception as err:
         logger.error(f'Ошибка проверки рассылки: {err}')
@@ -170,10 +177,16 @@ async def expired_evening_task_bar(bot: Bot):
             else:
                 text += f'Точки @{name} нет в базе\n'
         logger.debug(f'Отчет:\n{text}')
-        await bot.send_message(chat_id=conf.tg_bot.admin_ids[0], text=text)
-        await bot.send_message(chat_id=conf.tg_bot.admin_ids[1], text=text)
-        logger.info(f'Отчет отправлен')
-        await asyncio.sleep(0.1)
+        for admin_tg in conf.tg_bot.admin_ids:
+            try:
+                await bot.send_message(chat_id=admin_tg, text=text)
+
+                logger.info(f'Отчет {admin_tg} отправлен')
+                await asyncio.sleep(0.1)
+            except TelegramForbiddenError as err:
+                logger.warning(f'Ошибка отправки сообщения отчета по просрочки: {err}')
+            except Exception as err:
+                logger.error(f'Ошибка отправки сообщения отчета по просрочки: {err}', exc_info=False)
 
     except Exception as err:
         logger.error(f'Ошибка проверки рассылки: {err}')
